@@ -67,7 +67,9 @@
     const u=c.url;
     const add=(v,why,score)=>{ if(v && v!==u && /^https?:/i.test(v)) variants.set(v,{url:v,sources:[`derived:${why}`],confidence:score}); };
     add(u.replace(/fotos-watermarked/gi,'fotos-sem-marca'),'fotos-watermarked→fotos-sem-marca',97);
+    add(u.replace(/\/fotos\//gi,'/fotos-sem-marca/'),'fotos→fotos-sem-marca',96);
     add(u.replace(/capas-watermarked/gi,'capas-sem-marca'),'capas-watermarked→capas-sem-marca',97);
+    add(u.replace(/\/capas\//gi,'/capas-sem-marca/'),'capas→capas-sem-marca',96);
     add(u.replace(/\/watermarked\//gi,'/sem-marca/'),'watermarked→sem-marca',94);
     add(u.replace(/[-_]watermarked/gi,'-sem-marca'),'watermarked suffix→sem-marca',92);
     add(u.replace(/[-_]with[-_]watermark/gi,'-sem-marca'),'with-watermark→sem-marca',90);
