@@ -98,7 +98,9 @@ function deriveVariants(u) {
   const out=[];
   const add=(v,reason,score)=>{ if(v && v!==u && /^https?:/i.test(v)) out.push({url:v,score,reason}); };
   add(u.replace(/fotos-watermarked/gi,'fotos-sem-marca'),'fotos-watermarked → fotos-sem-marca',100);
+  add(u.replace(/\/fotos\//gi,'/fotos-sem-marca/'),'fotos → fotos-sem-marca',99);
   add(u.replace(/capas-watermarked/gi,'capas-sem-marca'),'capas-watermarked → capas-sem-marca',99);
+  add(u.replace(/\/capas\//gi,'/capas-sem-marca/'),'capas → capas-sem-marca',98);
   add(u.replace(/watermarked/gi,'sem-marca'),'watermarked → sem-marca',98);
   add(u.replace(/watermark(ed)?/gi,'sem-marca'),'watermark → sem-marca',96);
   add(u.replace(/with[-_]?watermark/gi,'sem-marca'),'with-watermark → sem-marca',95);
