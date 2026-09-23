@@ -30,7 +30,6 @@ document.getElementById('collectAll').addEventListener('click', async () => {
         if (url.includes('/icon')) return false;
         if (url.includes('avatar')) return false;
         if (url.includes('favicon')) return false;
-        if (url.includes('fotobase') && !url.includes('fotos-watermarked')) return false;
         return true;
       }
 
@@ -138,7 +137,6 @@ document.getElementById('extractImages').addEventListener('click', async () => {
         if (url.includes('/icon')) return false;
         if (url.includes('avatar')) return false;
         if (url.includes('favicon')) return false;
-        if (url.includes('fotobase') && !url.includes('fotos-watermarked')) return false;
         return true;
       }
 
