@@ -11,10 +11,7 @@
     "unlimitedStorage"
   ],
   "host_permissions": [
-    "https://huggingface.co/*",
-    "https://cdn-lfs.huggingface.co/*",
-    "https://*.hf.co/*",
-    "https://*.huggingface.co/*"
+    "<all_urls>"
   ],
   "content_security_policy": {
     "extension_pages": "script-src 'self' 'wasm-unsafe-eval'; object-src 'self';"
@@ -25,8 +22,14 @@
   },
   "web_accessible_resources": [
     {
-      "resources": ["inpaint.html", "inpaint.js", "lib/*"],
-      "matches": ["<all_urls>"]
+      "resources": [
+        "inpaint.html",
+        "inpaint.js",
+        "lib/*"
+      ],
+      "matches": [
+        "<all_urls>"
+      ]
     }
   ]
 }
