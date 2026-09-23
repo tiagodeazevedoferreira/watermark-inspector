@@ -1,11 +1,32 @@
 {
   "manifest_version": 3,
   "name": "Watermark Inspector",
-  "version": "1.0.0",
-  "description": "Extrai e remove overlays de marca d'água da página atual.",
-  "permissions": ["activeTab", "scripting"],
+  "version": "2.0.0",
+  "description": "Extrai imagens e remove marcas d'água com IA local.",
+  "permissions": [
+    "activeTab",
+    "scripting",
+    "downloads",
+    "storage",
+    "unlimitedStorage"
+  ],
+  "host_permissions": [
+    "https://huggingface.co/*",
+    "https://cdn-lfs.huggingface.co/*",
+    "https://*.hf.co/*",
+    "https://*.huggingface.co/*"
+  ],
+  "content_security_policy": {
+    "extension_pages": "script-src 'self' 'wasm-unsafe-eval'; object-src 'self';"
+  },
   "action": {
     "default_popup": "popup.html",
     "default_title": "Watermark Inspector"
-  }
+  },
+  "web_accessible_resources": [
+    {
+      "resources": ["inpaint.html", "inpaint.js", "lib/*"],
+      "matches": ["<all_urls>"]
+    }
+  ]
 }
