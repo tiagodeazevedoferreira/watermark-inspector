@@ -1,0 +1,11 @@
+{
+  "manifest_version": 3,
+  "name": "Watermark Inspector",
+  "version": "1.0.0",
+  "description": "Extrai e remove overlays de marca d'água da página atual.",
+  "permissions": ["activeTab", "scripting"],
+  "action": {
+    "default_popup": "popup.html",
+    "default_title": "Watermark Inspector"
+  }
+}
