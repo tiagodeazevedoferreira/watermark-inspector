@@ -1,3 +1,4 @@
+(async () => {
 const data = await chrome.storage.local.get(['inspection']);
 const report = data.inspection;
 const status = document.getElementById('status');
@@ -116,3 +117,5 @@ function renderOverlays(items){
   overlayEl.innerHTML=items.length?items.map(x=>`<div class="row"><b>${escapeHtml(x.tag)}</b> score ${x.score} — #${escapeHtml(x.id||'')} ${escapeHtml(x.className||'')}</div>`).join(''):'<div>Nenhum overlay evidente por heurística.</div>';
 }
 function escapeHtml(v){return String(v??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));}
+
+})();
