@@ -1,6 +1,6 @@
 /* ============================================================
-   Watermark Inspector — Popup (versão robusta)
-   Coleta todas as imagens com scroll agressivo e baixa.
+   Watermark Inspector — Popup
+   Coleta imagens com scroll automático e baixa todas.
    ============================================================ */
 
 const log = document.getElementById('log');
@@ -10,7 +10,7 @@ function logMsg(msg) {
 }
 
 /* ============================================================
-   COLETA TUDO
+   COLETA TUDO — rola a página e coleta todas as URLs
    ============================================================ */
 document.getElementById('collectAll').addEventListener('click', async () => {
   logMsg('Coletando imagens...\nIsso pode demorar 1-3 minutos.');
@@ -59,11 +59,12 @@ document.getElementById('collectAll').addEventListener('click', async () => {
       let noNewCount = 0;
       let lastTotal = urls.length;
       let iterations = 0;
-      const MAX_ITER = 200;
+      const MAX_ITERATIONS = 200;
 
-      while (noNewCount < 5 && iterations < MAX_ITER) {
+      while (noNewCount < 5 && iterations < MAX_ITERATIONS) {
         iterations++;
 
+        // Rolagem múltipla
         window.scrollTo(0, document.documentElement.scrollHeight);
         document.documentElement.scrollTop = document.documentElement.scrollHeight;
         if (document.body) document.body.scrollTop = document.body.scrollHeight;
@@ -82,8 +83,11 @@ document.getElementById('collectAll').addEventListener('click', async () => {
         const added = collect();
         const total = urls.length;
 
-        if (total === lastTotal && added === 0) noNewCount++;
-        else noNewCount = 0;
+        if (total === lastTotal && added === 0) {
+          noNewCount++;
+        } else {
+          noNewCount = 0;
+        }
         lastTotal = total;
       }
 
@@ -102,7 +106,7 @@ document.getElementById('collectAll').addEventListener('click', async () => {
 
   logMsg(`✅ Inicial: ${initial} | Final: ${total}\nRolagens: ${iterations}\n\nBaixando...`);
 
-  // Filtra apenas fotos (ignora logos, ícones, etc)
+  // Filtra logos e ícones
   const fotos = urls.filter(u => {
     if (u.includes('/logo')) return false;
     if (u.includes('/icon')) return false;
