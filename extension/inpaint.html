@@ -43,16 +43,9 @@
   button:disabled { opacity: 0.5; cursor: not-allowed; }
   button.success { background: #22c55e; color: #001b0d; }
   button.warn { background: #f59e0b; color: #1a0f00; }
-  button.ghost { background: transparent; border: 1px solid #2a2f3a; color: #e6e8ee; }
-
-  .status {
-    font-size: 13px;
-    color: #8a93a6;
-    margin: 8px 0;
-  }
+  .status { font-size: 13px; color: #8a93a6; margin: 8px 0; }
   .status.ok { color: #22c55e; }
   .status.error { color: #ef4444; }
-
   .progress-bar {
     height: 8px;
     background: #1e222b;
@@ -66,7 +59,6 @@
     background: linear-gradient(90deg, #4f8cff, #22c55e);
     transition: width 0.3s;
   }
-
   .grid {
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
@@ -112,16 +104,13 @@
   .badge.working { background: #1e3a8a; color: #bfdbfe; }
   .badge.done { background: #14532d; color: #bbf7d0; }
   .badge.error { background: #7f1d1d; color: #fecaca; }
-
   .loading-overlay {
     position: absolute;
     inset: 0;
     background: rgba(15, 17, 21, 0.9);
     display: flex;
-    flex-direction: column;
     align-items: center;
     justify-content: center;
-    gap: 12px;
     z-index: 10;
   }
   .spinner {
@@ -133,12 +122,11 @@
     animation: spin 0.8s linear infinite;
   }
   @keyframes spin { to { transform: rotate(360deg); } }
-  .hidden { display: none !important; }
 </style>
 </head>
 <body>
   <h1>🧠 Processando imagens com IA</h1>
-  <p class="sub">Remove a marca d'água das imagens com inpainting (LaMa + WebGPU). Roda 100% no seu computador.</p>
+  <p class="sub">Remove a marca d'água com inpainting (LaMa + WebGPU). Roda 100% no seu computador.</p>
 
   <div class="panel">
     <div class="toolbar">
@@ -147,11 +135,9 @@
       <button id="downloadAllBtn" class="success" disabled>3️⃣ Baixar tudo</button>
       <button id="abortBtn" class="warn" disabled>⏹️ Abortar</button>
     </div>
-
     <div class="progress-bar">
       <div class="progress-fill" id="progressFill"></div>
     </div>
-
     <p class="status" id="status">Clique em "Carregar modelo" para começar.</p>
   </div>
 
