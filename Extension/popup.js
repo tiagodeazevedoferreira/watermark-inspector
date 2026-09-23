@@ -1,6 +1,6 @@
 /* ============================================================
-   Watermark Inspector — Popup (versão de extração)
-   Coleta todas as imagens com scroll automático e baixa.
+   Watermark Inspector — Popup (versão robusta)
+   Coleta todas as imagens com scroll agressivo e baixa.
    ============================================================ */
 
 const log = document.getElementById('log');
@@ -10,10 +10,10 @@ function logMsg(msg) {
 }
 
 /* ============================================================
-   COLETA TUDO — rola a página e coleta todas as URLs
+   COLETA TUDO
    ============================================================ */
 document.getElementById('collectAll').addEventListener('click', async () => {
-  logMsg('Coletando imagens...\nIsso pode demorar 30s a 2 minutos.');
+  logMsg('Coletando imagens...\nIsso pode demorar 1-3 minutos.');
 
   const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
 
@@ -55,40 +55,66 @@ document.getElementById('collectAll').addEventListener('click', async () => {
       collect();
       const initial = urls.length;
 
-      // Rola até o fim
-      let lastHeight = 0;
-      let stuckCount = 0;
+      // Rola até o fim, com múltiplas estratégias
+      let noNewCount = 0;
+      let lastTotal = urls.length;
+      let iterations = 0;
+      const MAX_ITER = 200;
 
-      while (stuckCount < 3) {
-        window.scrollTo(0, document.body.scrollHeight);
-        await sleep(800);
-        collect();
+      while (noNewCount < 5 && iterations < MAX_ITER) {
+        iterations++;
 
-        const newHeight = document.body.scrollHeight;
-        if (newHeight === lastHeight) stuckCount++;
-        else stuckCount = 0;
-        lastHeight = newHeight;
+        window.scrollTo(0, document.documentElement.scrollHeight);
+        document.documentElement.scrollTop = document.documentElement.scrollHeight;
+        if (document.body) document.body.scrollTop = document.body.scrollHeight;
+
+        await sleep(1500);
+
+        // Rola containers internos
+        document.querySelectorAll('*').forEach(el => {
+          if (el.scrollHeight > el.clientHeight + 100 && el.clientHeight > 200) {
+            el.scrollTop = el.scrollHeight;
+          }
+        });
+
+        await sleep(500);
+
+        const added = collect();
+        const total = urls.length;
+
+        if (total === lastTotal && added === 0) noNewCount++;
+        else noNewCount = 0;
+        lastTotal = total;
       }
 
       window.scrollTo(0, 0);
 
-      return { urls, initial, total: urls.length };
+      return { urls, initial, total: urls.length, iterations };
     }
   });
 
-  const { urls, initial, total } = results[0].result;
-
-  logMsg(`Inicial: ${initial} imagens\nApós scroll: ${total} imagens\n\nBaixando...`);
+  const { urls, initial, total, iterations } = results[0].result;
 
   if (urls.length === 0) {
     logMsg('❌ Nenhuma imagem encontrada.');
     return;
   }
 
+  logMsg(`✅ Inicial: ${initial} | Final: ${total}\nRolagens: ${iterations}\n\nBaixando...`);
+
+  // Filtra apenas fotos (ignora logos, ícones, etc)
+  const fotos = urls.filter(u => {
+    if (u.includes('/logo')) return false;
+    if (u.includes('/icon')) return false;
+    if (u.includes('avatar')) return false;
+    if (u.includes('favicon')) return false;
+    return true;
+  });
+
   // Baixa todas
   await chrome.scripting.executeScript({
     target: { tabId: tab.id },
-    args: [urls],
+    args: [fotos],
     func: async (urls) => {
       const sleep = ms => new Promise(r => setTimeout(r, ms));
       for (let i = 0; i < urls.length; i++) {
@@ -98,12 +124,12 @@ document.getElementById('collectAll').addEventListener('click', async () => {
         document.body.appendChild(a);
         a.click();
         document.body.removeChild(a);
-        await sleep(400);
+        await sleep(500);
       }
     }
   });
 
-  logMsg(`✅ ${total} imagens baixadas.\n\nVerifique a pasta Downloads.`);
+  logMsg(`✅ ${fotos.length} downloads iniciados.\n\nVerifique a pasta Downloads.`);
 });
 
 /* ============================================================
