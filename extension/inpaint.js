@@ -4,7 +4,7 @@
    ============================================================ */
 
 // ⚠️ TROQUE PELO SEU USUÁRIO DO HUGGING FACE
-const MODEL_URL = 'https://huggingface.co/SEU_USUARIO/lama-onnx/resolve/main/lama_fp16.onnx';
+const MODEL_URL = 'https://huggingface.co/tiagoaferreira/lama-onnx/blob/main/lama_fp16.onnx';
 
 // Tamanho de entrada do LaMa (múltiplo de 32)
 const INPUT_SIZE = 512;
