@@ -1,19 +1,22 @@
 /* ============================================================
    Watermark Inspector — Popup
-   Coleta imagens com scroll automático e baixa todas.
    ============================================================ */
 
 const log = document.getElementById('log');
 
 function logMsg(msg) {
   log.textContent = msg;
+  console.log('[WM]', msg);
 }
 
+console.log('[WM] popup.js carregado');
+
 /* ============================================================
-   COLETA TUDO — rola a página e coleta todas as URLs
+   COLETA TUDO
    ============================================================ */
 document.getElementById('collectAll').addEventListener('click', async () => {
-  logMsg('Coletando imagens...\nIsso pode demorar 1-3 minutos.');
+  console.log('[WM] botão collectAll clicado');
+  logMsg('Coletando imagens... Aguarde 1-3 minutos.');
 
   const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
 
@@ -51,27 +54,22 @@ document.getElementById('collectAll').addEventListener('click', async () => {
         return added;
       }
 
-      // Coleta inicial
       collect();
       const initial = urls.length;
 
-      // Rola até o fim, com múltiplas estratégias
       let noNewCount = 0;
       let lastTotal = urls.length;
       let iterations = 0;
-      const MAX_ITERATIONS = 200;
 
-      while (noNewCount < 5 && iterations < MAX_ITERATIONS) {
+      while (noNewCount < 5 && iterations < 200) {
         iterations++;
 
-        // Rolagem múltipla
         window.scrollTo(0, document.documentElement.scrollHeight);
         document.documentElement.scrollTop = document.documentElement.scrollHeight;
         if (document.body) document.body.scrollTop = document.body.scrollHeight;
 
         await sleep(1500);
 
-        // Rola containers internos
         document.querySelectorAll('*').forEach(el => {
           if (el.scrollHeight > el.clientHeight + 100 && el.clientHeight > 200) {
             el.scrollTop = el.scrollHeight;
@@ -83,16 +81,12 @@ document.getElementById('collectAll').addEventListener('click', async () => {
         const added = collect();
         const total = urls.length;
 
-        if (total === lastTotal && added === 0) {
-          noNewCount++;
-        } else {
-          noNewCount = 0;
-        }
+        if (total === lastTotal && added === 0) noNewCount++;
+        else noNewCount = 0;
         lastTotal = total;
       }
 
       window.scrollTo(0, 0);
-
       return { urls, initial, total: urls.length, iterations };
     }
   });
@@ -106,7 +100,6 @@ document.getElementById('collectAll').addEventListener('click', async () => {
 
   logMsg(`✅ Inicial: ${initial} | Final: ${total}\nRolagens: ${iterations}\n\nBaixando...`);
 
-  // Filtra logos e ícones
   const fotos = urls.filter(u => {
     if (u.includes('/logo')) return false;
     if (u.includes('/icon')) return false;
@@ -115,7 +108,6 @@ document.getElementById('collectAll').addEventListener('click', async () => {
     return true;
   });
 
-  // Baixa todas
   await chrome.scripting.executeScript({
     target: { tabId: tab.id },
     args: [fotos],
@@ -133,13 +125,14 @@ document.getElementById('collectAll').addEventListener('click', async () => {
     }
   });
 
-  logMsg(`✅ ${fotos.length} downloads iniciados.\n\nVerifique a pasta Downloads.`);
+  logMsg(`✅ ${fotos.length} downloads iniciados.`);
 });
 
 /* ============================================================
    Extrair só o visível
    ============================================================ */
 document.getElementById('extractImages').addEventListener('click', async () => {
+  console.log('[WM] botão extractImages clicado');
   logMsg('Buscando imagens visíveis...');
 
   const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
