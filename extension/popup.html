@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <style>
   body {
-    width: 320px;
+    width: 340px;
     font-family: system-ui, sans-serif;
     padding: 14px;
     background: #0f1115;
@@ -26,26 +26,29 @@
   }
   button:hover { filter: brightness(1.1); }
   button.alt { background: #22c55e; color: #001b0d; }
+  button.warn { background: #f59e0b; color: #1a0f00; }
   #log {
     font-size: 11px;
     color: #8a93a6;
     margin-top: 10px;
     white-space: pre-wrap;
-    max-height: 200px;
+    max-height: 220px;
     overflow-y: auto;
     background: #171a21;
     padding: 8px;
     border-radius: 6px;
     border: 1px solid #2a2f3a;
+    line-height: 1.5;
   }
 </style>
 </head>
 <body>
   <h3>🔎 Watermark Inspector</h3>
 
-  <button id="extractImages">🖼️ Extrair imagens da página</button>
+  <button id="collectAll" class="alt">📜 Coletar tudo (rola a página)</button>
+  <button id="extractImages">🖼️ Extrair só o visível</button>
   <button id="removeOverlays">🪧 Remover overlays</button>
-  <button id="removeAggressive" class="alt">💥 Modo agressivo</button>
+  <button id="removeAggressive" class="warn">💥 Modo agressivo</button>
 
   <div id="log">Pronto para começar.</div>
 
