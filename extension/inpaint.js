@@ -70,7 +70,7 @@ async function loadModel() {
     console.log('wasmPaths:', ort.env.wasm.wasmPaths);
 
     session = await ort.InferenceSession.create(MODEL_URL, {
-      executionProviders: ['wasm'],   // WASM puro, sem WebGPU
+      executionProviders: ['wasm'],
       graphOptimizationLevel: 'all',
     });
 
@@ -327,18 +327,47 @@ function updateProgress(done, total) {
 /* ============================================================
    Utils
    ============================================================ */
-function loadImageAsCanvas(url) {
-  return new Promise((resolve, reject) => {
-    const img = new Image();
-    img.crossOrigin = 'anonymous';
-    img.onload = () => {
-      const c = document.createElement('canvas');
-      c.width = img.width;
-      c.height = img.height;
-      c.getContext('2d').drawImage(img, 0, 0);
-      resolve(c);
-    };
-    img.onerror = () => reject(new Error('Falha ao carregar imagem'));
-    img.src = url;
-  });
+async function loadImageAsCanvas(url) {
+  let response;
+
+  try {
+    response = await fetch(url, {
+      credentials: 'include',
+    });
+  } catch (err) {
+    throw new Error(`Falha de rede ao carregar imagem: ${err.message}`);
+  }
+
+  if (!response.ok) {
+    throw new Error(`Falha ao carregar imagem (HTTP ${response.status})`);
+  }
+
+  const blob = await response.blob();
+
+  if (!blob.type.startsWith('image/')) {
+    throw new Error(`URL não retornou uma imagem (${blob.type || 'tipo desconhecido'})`);
+  }
+
+  const objectUrl = URL.createObjectURL(blob);
+
+  try {
+    const img = await new Promise((resolve, reject) => {
+      const image = new Image();
+
+      image.onload = () => resolve(image);
+      image.onerror = () => reject(new Error('Falha ao decodificar imagem'));
+
+      image.src = objectUrl;
+    });
+
+    const c = document.createElement('canvas');
+    c.width = img.naturalWidth || img.width;
+    c.height = img.naturalHeight || img.height;
+
+    c.getContext('2d').drawImage(img, 0, 0);
+
+    return c;
+  } finally {
+    URL.revokeObjectURL(objectUrl);
+  }
 }
