@@ -1,21 +1,19 @@
 /* ============================================================
    Inpainting com detecção por cor
+   Otimizado para a marca d'água da FotoBase (azul escuro)
    ============================================================ */
 
-// ⚠️ TROQUE PELO SEU USUÁRIO DO HUGGING FACE
-const MODEL_URL = 'https://huggingface.co/tiagoaferreira/lama-onnx/blob/main/lama_fp16.onnx';
+// ⚠️ URL correta do modelo (usa /resolve/, não /blob/)
+const MODEL_URL = 'https://huggingface.co/tiagoaferreira/lama-onnx/resolve/main/lama_fp16.onnx';
 
-// Aponta para os arquivos WASM locais com sufixo explícito
-ort.env.wasm.wasmPaths = {
-  'ort-wasm-simd-threaded.jsep.mjs': chrome.runtime.getURL('lib/ort-wasm-simd-threaded.jsep.mjs'),
-  'ort-wasm-simd-threaded.jsep.wasm': chrome.runtime.getURL('lib/ort-wasm-simd-threaded.jsep.wasm'),
-  'ort-wasm-simd-threaded.wasm': chrome.runtime.getURL('lib/ort-wasm-simd-threaded.wasm'),
-};
+// Aponta para os arquivos WASM locais
+ort.env.wasm.wasmPaths = chrome.runtime.getURL('lib/');
 ort.env.wasm.numThreads = 1;
 
-const MODEL_URL = 'https://huggingface.co/SEU_USUARIO/lama-onnx/resolve/main/lama_fp16.onnx';
+// Tamanho de entrada do LaMa (múltiplo de 32)
 const INPUT_SIZE = 512;
 
+// Faixa de cor da marca (azul escuro da FotoBase)
 const MARK_COLOR = {
   rMin: 20, rMax: 70,
   gMin: 40, gMax: 90,
@@ -25,6 +23,9 @@ const MARK_COLOR = {
 let session = null;
 let images = [];
 
+/* ============================================================
+   Boot — lê URLs do storage
+   ============================================================ */
 document.addEventListener('DOMContentLoaded', async () => {
   document.getElementById('loadModelBtn').addEventListener('click', loadModel);
   document.getElementById('startBtn').addEventListener('click', processAll);
@@ -45,40 +46,55 @@ document.addEventListener('DOMContentLoaded', async () => {
   setStatus(`Recebidas ${urls.length} imagens. Carregue o modelo para começar.`);
 
   images = urls.map(url => ({
-    url, canvas: null, maskCanvas: null, resultCanvas: null,
-    status: 'pending', error: null,
+    url,
+    canvas: null,
+    maskCanvas: null,
+    resultCanvas: null,
+    status: 'pending',
+    error: null,
   }));
   renderGrid();
 });
 
+/* ============================================================
+   Carregar modelo
+   ============================================================ */
 async function loadModel() {
   const btn = document.getElementById('loadModelBtn');
   btn.disabled = true;
+
   try {
-    setStatus('Baixando modelo (~110 MB)... Aguarde.');
+    setStatus('Baixando modelo do Hugging Face (~110 MB)... Aguarde.');
     console.log('Model URL:', MODEL_URL);
+
     session = await ort.InferenceSession.create(MODEL_URL, {
       executionProviders: ['webgpu', 'wasm'],
       graphOptimizationLevel: 'all',
     });
+
     setStatus('✅ Modelo carregado! Clique em "Processar imagens".', 'ok');
     document.getElementById('startBtn').disabled = false;
     btn.textContent = '✅ Modelo pronto';
   } catch (err) {
     console.error(err);
-    setStatus('❌ Erro: ' + err.message, 'error');
+    setStatus('❌ Erro ao carregar modelo: ' + err.message, 'error');
     btn.disabled = false;
   }
 }
 
+/* ============================================================
+   Processar todas as imagens
+   ============================================================ */
 async function processAll() {
   if (!session) return;
+
   window.__abort = false;
   document.getElementById('startBtn').disabled = true;
   document.getElementById('abortBtn').disabled = false;
 
   for (let i = 0; i < images.length; i++) {
     if (window.__abort) break;
+
     const item = images[i];
     if (item.status === 'done') continue;
 
@@ -87,13 +103,16 @@ async function processAll() {
       item.status = 'working';
       renderGrid();
 
-      setStatus(`[${i + 1}/${images.length}] Baixando...`);
+      // 1. Baixar imagem
+      setStatus(`[${i + 1}/${images.length}] Baixando imagem...`);
       item.canvas = await loadImageAsCanvas(item.url);
 
+      // 2. Detectar marca por cor
       setStatus(`[${i + 1}/${images.length}] Detectando marca...`);
       item.maskCanvas = detectByColor(item.canvas);
 
-      setStatus(`[${i + 1}/${images.length}] Removendo com IA...`);
+      // 3. Rodar LaMa
+      setStatus(`[${i + 1}/${images.length}] Removendo marca com IA...`);
       item.resultCanvas = await runInpaint(item.canvas, item.maskCanvas);
 
       item.status = 'done';
@@ -110,10 +129,13 @@ async function processAll() {
   document.getElementById('abortBtn').disabled = true;
 
   const done = images.filter(i => i.status === 'done').length;
-  setStatus(`✅ Concluído: ${done}/${images.length}`, 'ok');
+  setStatus(`✅ Concluído: ${done}/${images.length} imagens processadas.`, 'ok');
   document.getElementById('downloadAllBtn').disabled = false;
 }
 
+/* ============================================================
+   Detecção por cor (azul escuro)
+   ============================================================ */
 function detectByColor(sourceCanvas) {
   const W = sourceCanvas.width;
   const H = sourceCanvas.height;
@@ -131,41 +153,62 @@ function detectByColor(sourceCanvas) {
   let count = 0;
 
   for (let i = 0; i < W * H; i++) {
-    const r = data[i * 4], g = data[i * 4 + 1], b = data[i * 4 + 2];
-    const isBlue = r >= rMin && r <= rMax && g >= gMin && g <= gMax && b >= bMin && b <= bMax && b > r + 20 && b > g + 10;
+    const r = data[i * 4];
+    const g = data[i * 4 + 1];
+    const b = data[i * 4 + 2];
+
+    const isBlue =
+      r >= rMin && r <= rMax &&
+      g >= gMin && g <= gMax &&
+      b >= bMin && b <= bMax &&
+      b > r + 20 &&
+      b > g + 10;
+
     if (isBlue) {
-      maskData.data[i * 4] = 255;
+      maskData.data[i * 4]     = 255;
       maskData.data[i * 4 + 1] = 0;
       maskData.data[i * 4 + 2] = 100;
       maskData.data[i * 4 + 3] = 230;
       count++;
     }
   }
+
   mctx.putImageData(maskData, 0, 0);
   console.log(`Detecção: ${count} pixels (${(count / (W * H) * 100).toFixed(1)}%)`);
   return maskCanvas;
 }
 
+/* ============================================================
+   Inpainting com LaMa
+   ============================================================ */
 async function runInpaint(photoCanvas, maskCanvas) {
-  const W = INPUT_SIZE, H = INPUT_SIZE;
+  const W = INPUT_SIZE;
+  const H = INPUT_SIZE;
 
+  // Foto redimensionada
   const tmpPhoto = document.createElement('canvas');
-  tmpPhoto.width = W; tmpPhoto.height = H;
+  tmpPhoto.width = W;
+  tmpPhoto.height = H;
   const pctx = tmpPhoto.getContext('2d');
   pctx.drawImage(photoCanvas, 0, 0, W, H);
   const photoData = pctx.getImageData(0, 0, W, H).data;
 
+  // Máscara redimensionada
   const tmpMask = document.createElement('canvas');
-  tmpMask.width = W; tmpMask.height = H;
+  tmpMask.width = W;
+  tmpMask.height = H;
   const mctx = tmpMask.getContext('2d');
   mctx.drawImage(maskCanvas, 0, 0, W, H);
   const maskData = mctx.getImageData(0, 0, W, H).data;
 
+  // Tensor [1, 4, H, W]
   const channel = H * W;
   const arr = new Float32Array(4 * channel);
+
   for (let i = 0; i < channel; i++) {
     const p = i * 4;
     const isMasked = maskData[p + 3] > 20 ? 1 : 0;
+
     arr[i]               = (photoData[p]     / 255) * (1 - isMasked);
     arr[channel + i]     = (photoData[p + 1] / 255) * (1 - isMasked);
     arr[channel * 2 + i] = (photoData[p + 2] / 255) * (1 - isMasked);
@@ -173,16 +216,21 @@ async function runInpaint(photoCanvas, maskCanvas) {
   }
 
   const inputTensor = new ort.Tensor('float32', arr, [1, 4, H, W]);
+
+  // Roda o modelo
   const results = await session.run({ input: inputTensor });
   const outTensor = results[session.outputNames[0]];
 
+  // Converte tensor em canvas
   const [, , OH, OW] = outTensor.dims;
   const outData = outTensor.data;
 
   const tmpOut = document.createElement('canvas');
-  tmpOut.width = OW; tmpOut.height = OH;
+  tmpOut.width = OW;
+  tmpOut.height = OH;
   const octx = tmpOut.getContext('2d');
   const imgOut = octx.createImageData(OW, OH);
+
   const oChannel = OH * OW;
   for (let i = 0; i < oChannel; i++) {
     imgOut.data[i * 4]     = Math.round(outData[i] * 255);
@@ -192,20 +240,28 @@ async function runInpaint(photoCanvas, maskCanvas) {
   }
   octx.putImageData(imgOut, 0, 0);
 
+  // Volta ao tamanho original
   const finalCanvas = document.createElement('canvas');
   finalCanvas.width = photoCanvas.width;
   finalCanvas.height = photoCanvas.height;
   finalCanvas.getContext('2d').drawImage(tmpOut, 0, 0, photoCanvas.width, photoCanvas.height);
+
   return finalCanvas;
 }
 
+/* ============================================================
+   Download
+   ============================================================ */
 async function downloadAll() {
   const done = images.filter(i => i.status === 'done');
   if (done.length === 0) return;
+
   setStatus(`Baixando ${done.length} imagens...`);
 
   for (let i = 0; i < done.length; i++) {
-    const blob = await new Promise(r => done[i].resultCanvas.toBlob(r, 'image/jpeg', 0.92));
+    const item = done[i];
+    const blob = await new Promise(r => item.resultCanvas.toBlob(r, 'image/jpeg', 0.92));
+
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
@@ -214,26 +270,39 @@ async function downloadAll() {
     a.click();
     document.body.removeChild(a);
     setTimeout(() => URL.revokeObjectURL(url), 10000);
+
     await new Promise(r => setTimeout(r, 300));
   }
-  setStatus(`✅ ${done.length} baixadas.`, 'ok');
+
+  setStatus(`✅ ${done.length} imagens baixadas.`, 'ok');
 }
 
+/* ============================================================
+   UI
+   ============================================================ */
 function renderGrid() {
   const grid = document.getElementById('grid');
   grid.innerHTML = '';
+
   images.forEach((item, i) => {
     const card = document.createElement('div');
     card.className = 'card';
-    const badgeText = { pending: '⏳', working: '🧠', done: '✅', error: '❌' }[item.status];
+
+    const badgeText = {
+      pending: '⏳',
+      working: '🧠',
+      done: '✅',
+      error: '❌',
+    }[item.status];
 
     let previewHTML = '';
+
     if (item.status === 'done' && item.resultCanvas) {
-      previewHTML = `<img src="${item.resultCanvas.toDataURL('image/jpeg', 0.7)}">`;
+      previewHTML = `<img src="${item.resultCanvas.toDataURL('image/jpeg', 0.7)}" alt="">`;
     } else if (item.canvas) {
-      previewHTML = `<img src="${item.canvas.toDataURL('image/jpeg', 0.5)}">`;
+      previewHTML = `<img src="${item.canvas.toDataURL('image/jpeg', 0.5)}" alt="">`;
     } else {
-      previewHTML = `<img src="${item.url}" loading="lazy">`;
+      previewHTML = `<img src="${item.url}" alt="" loading="lazy">`;
     }
 
     card.innerHTML = `
@@ -243,9 +312,10 @@ function renderGrid() {
       </div>
       <div class="label">
         <span>#${i + 1}</span>
-        <span class="badge ${item.status}">${badgeText}</span>
+        <span class="badge ${item.status}">${badgeText}${item.error ? ' ' + item.error.slice(0, 30) : ''}</span>
       </div>
     `;
+
     grid.appendChild(card);
   });
 }
@@ -257,16 +327,21 @@ function setStatus(msg, kind) {
 }
 
 function updateProgress(done, total) {
-  document.getElementById('progressFill').style.width = (total ? (done / total) * 100 : 0) + '%';
+  const pct = total ? (done / total) * 100 : 0;
+  document.getElementById('progressFill').style.width = pct + '%';
 }
 
+/* ============================================================
+   Utils
+   ============================================================ */
 function loadImageAsCanvas(url) {
   return new Promise((resolve, reject) => {
     const img = new Image();
     img.crossOrigin = 'anonymous';
     img.onload = () => {
       const c = document.createElement('canvas');
-      c.width = img.width; c.height = img.height;
+      c.width = img.width;
+      c.height = img.height;
       c.getContext('2d').drawImage(img, 0, 0);
       resolve(c);
     };
