@@ -1,14 +1,15 @@
 /* ============================================================
    Inpainting com detecção por cor
-   Otimizado para a marca d'água da FotoBase (azul escuro)
+   Backend WASM (compatível com Chrome Extension MV3)
    ============================================================ */
 
 // ⚠️ URL correta do modelo (usa /resolve/, não /blob/)
 const MODEL_URL = 'https://huggingface.co/tiagoaferreira/lama-onnx/resolve/main/lama_fp16.onnx';
 
-// Aponta para os arquivos WASM locais
+// Configuração do ONNX Runtime — aponta para a pasta lib/ local
 ort.env.wasm.wasmPaths = chrome.runtime.getURL('lib/');
 ort.env.wasm.numThreads = 1;
+ort.env.wasm.simd = true;
 
 // Tamanho de entrada do LaMa (múltiplo de 32)
 const INPUT_SIZE = 512;
@@ -57,7 +58,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 });
 
 /* ============================================================
-   Carregar modelo
+   Carregar modelo (backend WASM)
    ============================================================ */
 async function loadModel() {
   const btn = document.getElementById('loadModelBtn');
@@ -66,9 +67,10 @@ async function loadModel() {
   try {
     setStatus('Baixando modelo do Hugging Face (~110 MB)... Aguarde.');
     console.log('Model URL:', MODEL_URL);
+    console.log('wasmPaths:', ort.env.wasm.wasmPaths);
 
     session = await ort.InferenceSession.create(MODEL_URL, {
-      executionProviders: ['webgpu', 'wasm'],
+      executionProviders: ['wasm'],   // WASM puro, sem WebGPU
       graphOptimizationLevel: 'all',
     });
 
@@ -103,15 +105,12 @@ async function processAll() {
       item.status = 'working';
       renderGrid();
 
-      // 1. Baixar imagem
       setStatus(`[${i + 1}/${images.length}] Baixando imagem...`);
       item.canvas = await loadImageAsCanvas(item.url);
 
-      // 2. Detectar marca por cor
       setStatus(`[${i + 1}/${images.length}] Detectando marca...`);
       item.maskCanvas = detectByColor(item.canvas);
 
-      // 3. Rodar LaMa
       setStatus(`[${i + 1}/${images.length}] Removendo marca com IA...`);
       item.resultCanvas = await runInpaint(item.canvas, item.maskCanvas);
 
@@ -185,7 +184,6 @@ async function runInpaint(photoCanvas, maskCanvas) {
   const W = INPUT_SIZE;
   const H = INPUT_SIZE;
 
-  // Foto redimensionada
   const tmpPhoto = document.createElement('canvas');
   tmpPhoto.width = W;
   tmpPhoto.height = H;
@@ -193,7 +191,6 @@ async function runInpaint(photoCanvas, maskCanvas) {
   pctx.drawImage(photoCanvas, 0, 0, W, H);
   const photoData = pctx.getImageData(0, 0, W, H).data;
 
-  // Máscara redimensionada
   const tmpMask = document.createElement('canvas');
   tmpMask.width = W;
   tmpMask.height = H;
@@ -201,7 +198,6 @@ async function runInpaint(photoCanvas, maskCanvas) {
   mctx.drawImage(maskCanvas, 0, 0, W, H);
   const maskData = mctx.getImageData(0, 0, W, H).data;
 
-  // Tensor [1, 4, H, W]
   const channel = H * W;
   const arr = new Float32Array(4 * channel);
 
@@ -217,11 +213,9 @@ async function runInpaint(photoCanvas, maskCanvas) {
 
   const inputTensor = new ort.Tensor('float32', arr, [1, 4, H, W]);
 
-  // Roda o modelo
   const results = await session.run({ input: inputTensor });
   const outTensor = results[session.outputNames[0]];
 
-  // Converte tensor em canvas
   const [, , OH, OW] = outTensor.dims;
   const outData = outTensor.data;
 
@@ -240,7 +234,6 @@ async function runInpaint(photoCanvas, maskCanvas) {
   }
   octx.putImageData(imgOut, 0, 0);
 
-  // Volta ao tamanho original
   const finalCanvas = document.createElement('canvas');
   finalCanvas.width = photoCanvas.width;
   finalCanvas.height = photoCanvas.height;
