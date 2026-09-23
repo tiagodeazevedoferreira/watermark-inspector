@@ -5,6 +5,11 @@
 // ⚠️ TROQUE PELO SEU USUÁRIO DO HUGGING FACE
 const MODEL_URL = 'https://huggingface.co/tiagoaferreira/lama-onnx/blob/main/lama_fp16.onnx';
 
+// ⚠️ ADICIONE ESTAS LINHAS:
+// Aponta para os arquivos WASM locais (dentro da extensão)
+ort.env.wasm.wasmPaths = chrome.runtime.getURL('lib/');
+ort.env.wasm.numThreads = 1;  // Evita problemas com threads no Chrome extension
+
 const INPUT_SIZE = 512;
 
 const MARK_COLOR = {
