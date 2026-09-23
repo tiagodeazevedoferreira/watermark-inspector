@@ -162,45 +162,35 @@ document.getElementById('extractImages').addEventListener('click', async () => {
 document.getElementById('removeOverlays').addEventListener('click', () => run('normal'));
 document.getElementById('removeAggressive').addEventListener('click', () => run('aggressive'));
 
-async function run(mode) {
-  const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
-
-  const results = await chrome.scripting.executeScript({
+async function downloadAll(tab, urls) {
+  await chrome.scripting.executeScript({
     target: { tabId: tab.id },
-    args: [mode],
-    func: (mode) => {
-      const KEYWORDS = [
-        'watermark', 'marca', 'marca-dagua', 'marca_dagua', 'water-mark',
-        'overlay', 'protected', 'protection', 'logo-overlay', 'brand',
-        'copyright', 'selo', 'stamp', 'anti-theft', 'nosave', 'no-save'
-      ];
-      function score(el) {
-        const id = (el.id || '').toLowerCase();
-        const cls = (typeof el.className === 'string' ? el.className : '').toLowerCase();
-        const style = getComputedStyle(el);
-        let s = 0;
-        if (KEYWORDS.some(k => id.includes(k) || cls.includes(k))) s += 3;
-        if (style.position === 'absolute' || style.position === 'fixed') s += 1;
-        if (parseInt(style.zIndex, 10) > 10) s += 1;
-        if (style.pointerEvents === 'none') s += 1;
-        if (el.tagName === 'CANVAS') s += 1;
-        return s;
-      }
-      const removed = [];
-      const threshold = mode === 'aggressive' ? 2 : 3;
-      document.querySelectorAll('body *').forEach(el => {
-        if (el === document.body) return;
-        if (score(el) >= threshold) {
-          const isHuge = el.offsetWidth > window.innerWidth * 0.9 &&
-                         el.offsetHeight > window.innerHeight * 0.9;
-          if (isHuge && el.tagName !== 'CANVAS') return;
-          el.style.setProperty('display', 'none', 'important');
-          removed.push(el.tagName);
+    args: [urls],
+    func: async (urls) => {
+      const sleep = ms => new Promise(r => setTimeout(r, ms));
+
+      for (let i = 0; i < urls.length; i++) {
+        const url = urls[i];
+
+        try {
+          // Extrai nome do arquivo da URL
+          const fileName = `foto-${String(i + 1).padStart(3, '0')}.jpg`;
+
+          // Método 1: <a download> direto (sem fetch)
+          const a = document.createElement('a');
+          a.href = url;
+          a.download = fileName;
+          // NÃO usa target="_blank" — mantém na mesma aba
+          document.body.appendChild(a);
+          a.click();
+          document.body.removeChild(a);
+
+          // 350ms entre cliques
+          await sleep(350);
+        } catch (e) {
+          console.warn('Falha em', url, e);
         }
-      });
-      return { removed: removed.slice(0, 20), total: removed.length };
+      }
     }
   });
-  const r = results[0].result;
-  logMsg(`✅ Removidos: ${r.total}`);
 }
