@@ -5,12 +5,15 @@
 // ⚠️ TROQUE PELO SEU USUÁRIO DO HUGGING FACE
 const MODEL_URL = 'https://huggingface.co/tiagoaferreira/lama-onnx/blob/main/lama_fp16.onnx';
 
-// ⚠️ ADICIONE ESTAS LINHAS:
-// Aponta para os arquivos WASM locais (dentro da extensão)
-ort.env.wasm.wasmPaths = chrome.runtime.getURL('lib/');
+// Aponta para os arquivos WASM locais com sufixo explícito
+ort.env.wasm.wasmPaths = {
+  'ort-wasm-simd-threaded.jsep.mjs': chrome.runtime.getURL('lib/ort-wasm-simd-threaded.jsep.mjs'),
+  'ort-wasm-simd-threaded.jsep.wasm': chrome.runtime.getURL('lib/ort-wasm-simd-threaded.jsep.wasm'),
+  'ort-wasm-simd-threaded.wasm': chrome.runtime.getURL('lib/ort-wasm-simd-threaded.wasm'),
+};
 ort.env.wasm.numThreads = 1;
-ort.env.wasm.proxy = false;
 
+const MODEL_URL = 'https://huggingface.co/SEU_USUARIO/lama-onnx/resolve/main/lama_fp16.onnx';
 const INPUT_SIZE = 512;
 
 const MARK_COLOR = {
