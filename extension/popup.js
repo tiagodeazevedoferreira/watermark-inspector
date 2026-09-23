@@ -1,6 +1,5 @@
 /* ============================================================
    Watermark Inspector — Popup
-   Coleta imagens, filtra logos e abre página de inpainting
    ============================================================ */
 
 const log = document.getElementById('log');
@@ -10,7 +9,7 @@ function logMsg(msg) {
 }
 
 /* ============================================================
-   COLETA TUDO — rola a página, filtra, salva e abre inpainting
+   COLETA TUDO + abre página de inpainting
    ============================================================ */
 document.getElementById('collectAll').addEventListener('click', async () => {
   logMsg('Coletando imagens...\nIsso pode demorar 1-3 minutos.');
@@ -24,7 +23,6 @@ document.getElementById('collectAll').addEventListener('click', async () => {
       const seen = new Set();
       const urls = [];
 
-      // Filtros para descartar imagens que não são fotos
       function isFoto(url) {
         if (!url) return false;
         if (url.startsWith('data:')) return false;
@@ -32,8 +30,6 @@ document.getElementById('collectAll').addEventListener('click', async () => {
         if (url.includes('/icon')) return false;
         if (url.includes('avatar')) return false;
         if (url.includes('favicon')) return false;
-        if (url.includes('foto-base/logo')) return false;
-        // Filtro específico da FotoBase: só aceita fotos com marca
         if (url.includes('fotobase') && !url.includes('fotos-watermarked')) return false;
         return true;
       }
@@ -65,26 +61,21 @@ document.getElementById('collectAll').addEventListener('click', async () => {
         return added;
       }
 
-      // Coleta inicial
       collect();
       const initial = urls.length;
 
-      // Rola até o fim, com múltiplas estratégias
       let noNewCount = 0;
       let lastTotal = urls.length;
       let iterations = 0;
-      const MAX_ITERATIONS = 200;
 
-      while (noNewCount < 5 && iterations < MAX_ITERATIONS) {
+      while (noNewCount < 5 && iterations < 200) {
         iterations++;
-
         window.scrollTo(0, document.documentElement.scrollHeight);
         document.documentElement.scrollTop = document.documentElement.scrollHeight;
         if (document.body) document.body.scrollTop = document.body.scrollHeight;
 
         await sleep(1500);
 
-        // Rolagem de containers internos
         document.querySelectorAll('*').forEach(el => {
           if (el.scrollHeight > el.clientHeight + 100 && el.clientHeight > 200) {
             el.scrollTop = el.scrollHeight;
@@ -96,45 +87,41 @@ document.getElementById('collectAll').addEventListener('click', async () => {
         const added = collect();
         const total = urls.length;
 
-        if (total === lastTotal && added === 0) {
-          noNewCount++;
-        } else {
-          noNewCount = 0;
-        }
+        if (total === lastTotal && added === 0) noNewCount++;
+        else noNewCount = 0;
         lastTotal = total;
       }
 
       window.scrollTo(0, 0);
-
       return { urls, initial, total: urls.length, iterations };
     }
   });
 
-  const { urls, initial, total, iterations } = results[0].result;
+  const { urls, initial, total } = results[0].result;
 
   if (urls.length === 0) {
     logMsg('❌ Nenhuma imagem encontrada.');
     return;
   }
 
-  logMsg(`✅ Inicial: ${initial} | Final: ${total} fotos\nRolagens: ${iterations}\n\nSalvando e abrindo processador...`);
+  logMsg(`✅ ${total} fotos coletadas.\n\nSalvando e abrindo processador...`);
 
-  // Salva no storage para a página de inpainting ler
+  // Salva no storage
   await chrome.storage.local.set({ pendingUrls: urls });
 
-  // Abre a página de inpainting em nova aba
+  // Abre a nova aba de inpainting
   await chrome.tabs.create({
     url: chrome.runtime.getURL('inpaint.html'),
   });
 
-  logMsg(`✅ ${total} fotos enviadas para processamento.\n\nA aba de inpainting foi aberta.`);
+  logMsg(`✅ ${total} fotos enviadas.\n\nA aba de inpainting foi aberta.`);
 });
 
 /* ============================================================
-   Extrair só o visível — baixa direto (sem inpainting)
+   Extrair só o visível
    ============================================================ */
 document.getElementById('extractImages').addEventListener('click', async () => {
-  logMsg('Buscando imagens visíveis...');
+  logMsg('Buscando imagens...');
 
   const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
 
@@ -191,11 +178,11 @@ document.getElementById('extractImages').addEventListener('click', async () => {
     }
   });
 
-  logMsg(`✅ ${urls.length} downloads iniciados.\n\nVerifique a pasta Downloads.`);
+  logMsg(`✅ ${urls.length} downloads iniciados.`);
 });
 
 /* ============================================================
-   Remover overlays (útil para sites com marca via CSS)
+   Remover overlays
    ============================================================ */
 document.getElementById('removeOverlays').addEventListener('click', () => run('normal'));
 document.getElementById('removeAggressive').addEventListener('click', () => run('aggressive'));
@@ -212,7 +199,6 @@ async function run(mode) {
         'overlay', 'protected', 'protection', 'logo-overlay', 'brand',
         'copyright', 'selo', 'stamp', 'anti-theft', 'nosave', 'no-save'
       ];
-
       function score(el) {
         const id = (el.id || '').toLowerCase();
         const cls = (typeof el.className === 'string' ? el.className : '').toLowerCase();
@@ -225,10 +211,8 @@ async function run(mode) {
         if (el.tagName === 'CANVAS') s += 1;
         return s;
       }
-
       const removed = [];
       const threshold = mode === 'aggressive' ? 2 : 3;
-
       document.querySelectorAll('body *').forEach(el => {
         if (el === document.body) return;
         if (score(el) >= threshold) {
@@ -236,21 +220,12 @@ async function run(mode) {
                          el.offsetHeight > window.innerHeight * 0.9;
           if (isHuge && el.tagName !== 'CANVAS') return;
           el.style.setProperty('display', 'none', 'important');
-          removed.push(
-            el.tagName +
-            (el.id ? '#' + el.id : '') +
-            (el.className && typeof el.className === 'string'
-              ? '.' + el.className.split(' ')[0]
-              : '')
-          );
+          removed.push(el.tagName);
         }
       });
-
       return { removed: removed.slice(0, 20), total: removed.length };
     }
   });
-
   const r = results[0].result;
-  logMsg(`✅ Removidos: ${r.total}\n\n` +
-    (r.removed.length ? r.removed.map(x => '• ' + x).join('\n') : '(nenhum)'));
+  logMsg(`✅ Removidos: ${r.total}`);
 }
