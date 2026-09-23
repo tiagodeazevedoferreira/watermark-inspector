@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Watermark Inspector",
-  "version": "2.0.0",
+  "version": "2.1.0",
   "description": "Extrai imagens e remove marcas d'água com IA local.",
   "permissions": [
     "activeTab",
