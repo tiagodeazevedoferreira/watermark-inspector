@@ -1,0 +1,16 @@
+{
+  "manifest_version": 3,
+  "name": "Watermark Inspector (backup - extração)",
+  "version": "1.0.0",
+  "description": "Extrai todas as imagens de uma página com scroll automático.",
+  "permissions": [
+    "activeTab",
+    "scripting",
+    "downloads",
+    "storage"
+  ],
+  "action": {
+    "default_popup": "popup.html",
+    "default_title": "Watermark Inspector"
+  }
+}

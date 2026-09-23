@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<style>
+  body {
+    width: 340px;
+    font-family: system-ui, sans-serif;
+    padding: 14px;
+    background: #0f1115;
+    color: #e6e8ee;
+    margin: 0;
+  }
+  h3 { margin: 0 0 12px; font-size: 15px; color: #4f8cff; }
+  button {
+    width: 100%;
+    padding: 10px;
+    border: none;
+    border-radius: 8px;
+    background: #4f8cff;
+    color: #fff;
+    font-weight: 600;
+    cursor: pointer;
+    margin-bottom: 8px;
+    font-size: 13px;
+  }
+  button:hover { filter: brightness(1.1); }
+  button.alt { background: #22c55e; color: #001b0d; }
+  #log {
+    font-size: 11px;
+    color: #8a93a6;
+    margin-top: 10px;
+    white-space: pre-wrap;
+    max-height: 220px;
+    overflow-y: auto;
+    background: #171a21;
+    padding: 8px;
+    border-radius: 6px;
+    border: 1px solid #2a2f3a;
+    line-height: 1.5;
+  }
+</style>
+</head>
+<body>
+  <h3>🔎 Watermark Inspector</h3>
+
+  <button id="collectAll" class="alt">📜 Coletar tudo (rola a página)</button>
+  <button id="extractImages">🖼️ Extrair só o visível</button>
+
+  <div id="log">Pronto para começar.</div>
+
+  <script src="popup.js"></script>
+</body>
+</html>
