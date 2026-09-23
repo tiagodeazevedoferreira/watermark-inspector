@@ -5,14 +5,13 @@ function logMsg(msg) {
 }
 
 /* ============================================================
-   COLETA TUDO — rola a página e espera imagens carregarem
+   COLETA TUDO — rola a página, coleta URLs, abre inpainting
    ============================================================ */
 document.getElementById('collectAll').addEventListener('click', async () => {
-  logMsg('Iniciando coleta com scroll...\nIsso pode demorar 30s a 2 minutos.');
+  logMsg('Coletando imagens...\nIsso pode demorar 30s a 2 minutos.');
 
   const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
 
-  // Injeta script que rola e coleta
   const results = await chrome.scripting.executeScript({
     target: { tabId: tab.id },
     func: async () => {
@@ -45,50 +44,49 @@ document.getElementById('collectAll').addEventListener('click', async () => {
         });
       }
 
-      // Coleta inicial
       collect();
       const initial = urls.length;
 
-      // Rola até o fim
       let lastHeight = 0;
       let stuckCount = 0;
 
       while (stuckCount < 3) {
         window.scrollTo(0, document.body.scrollHeight);
         await sleep(800);
-
         collect();
-
         const newHeight = document.body.scrollHeight;
-        if (newHeight === lastHeight) {
-          stuckCount++;
-        } else {
-          stuckCount = 0;
-        }
+        if (newHeight === lastHeight) stuckCount++;
+        else stuckCount = 0;
         lastHeight = newHeight;
-
-        // Se clicar num botão "carregar mais", descomente abaixo
-        // const moreBtn = [...document.querySelectorAll('button')].find(b =>
-        //   /carregar|mais|ver mais|load more/i.test(b.textContent));
-        // if (moreBtn) moreBtn.click();
       }
 
-      // Volta ao topo
       window.scrollTo(0, 0);
-
       return { urls, initial, total: urls.length };
     }
   });
 
   const { urls, initial, total } = results[0].result;
 
-  logMsg(`Inicial: ${initial} imagens\nApós scroll: ${total} imagens\n\nBaixando...`);
+  if (urls.length === 0) {
+    logMsg('❌ Nenhuma imagem encontrada.');
+    return;
+  }
 
-  await downloadAll(tab, urls);
+  logMsg(`✅ Coletadas ${total} imagens.\n\nSalvando e abrindo processador...`);
+
+  // Salva no storage para a página de inpainting ler
+  await chrome.storage.local.set({ pendingUrls: urls });
+
+  // Abre a página de inpainting numa nova aba
+  await chrome.tabs.create({
+    url: chrome.runtime.getURL('inpaint.html'),
+  });
+
+  logMsg(`✅ ${total} imagens enviadas para processamento.\n\nA aba de inpainting foi aberta.`);
 });
 
 /* ============================================================
-   Extrair só o visível
+   Extrair só o visível (mantém como estava)
    ============================================================ */
 document.getElementById('extractImages').addEventListener('click', async () => {
   logMsg('Buscando imagens visíveis...');
@@ -118,52 +116,21 @@ document.getElementById('extractImages').addEventListener('click', async () => {
   const urls = results[0].result || [];
   if (urls.length === 0) return logMsg('❌ Nenhuma imagem.');
   logMsg(`✅ ${urls.length} imagens. Baixando...`);
-  await downloadAll(tab, urls);
+
+  for (let i = 0; i < urls.length; i++) {
+    const a = document.createElement('a');
+    a.href = urls[i];
+    a.download = `original-${i + 1}.jpg`;
+    a.target = '_blank';
+    a.click();
+    await new Promise(r => setTimeout(r, 300));
+  }
+
+  logMsg(`✅ ${urls.length} downloads iniciados.`);
 });
 
 /* ============================================================
-   Baixar todas as imagens (dentro da página)
-   ============================================================ */
-async function downloadAll(tab, urls) {
-  // Abre nova aba para fazer os downloads (não trava a página principal)
-  await chrome.scripting.executeScript({
-    target: { tabId: tab.id },
-    args: [urls],
-    func: async (urls) => {
-      const sleep = ms => new Promise(r => setTimeout(r, ms));
-
-      for (let i = 0; i < urls.length; i++) {
-        const url = urls[i];
-
-        try {
-          // Baixa como blob para preservar nome
-          const res = await fetch(url, { credentials: 'include' });
-          const blob = await res.blob();
-
-          const ext = (url.match(/\.(jpe?g|png|webp|gif)/i) || ['', 'jpg'])[1];
-          const a = document.createElement('a');
-          a.href = URL.createObjectURL(blob);
-          a.download = `foto-${String(i + 1).padStart(3, '0')}.${ext}`;
-          document.body.appendChild(a);
-          a.click();
-          document.body.removeChild(a);
-
-          setTimeout(() => URL.revokeObjectURL(a.href), 10000);
-
-          // 400ms entre downloads evita bloqueio do Chrome
-          await sleep(400);
-        } catch (e) {
-          console.warn('Falha em', url, e);
-        }
-      }
-    }
-  });
-
-  logMsg(`✅ ${urls.length} downloads iniciados.\n\nVerifique a pasta Downloads.`);
-}
-
-/* ============================================================
-   Remover overlays
+   Remover overlays (mantém como estava)
    ============================================================ */
 document.getElementById('removeOverlays').addEventListener('click', () => run('normal'));
 document.getElementById('removeAggressive').addEventListener('click', () => run('aggressive'));
@@ -180,7 +147,6 @@ async function run(mode) {
         'overlay', 'protected', 'protection', 'logo-overlay', 'brand',
         'copyright', 'selo', 'stamp', 'anti-theft', 'nosave', 'no-save'
       ];
-
       function score(el) {
         const id = (el.id || '').toLowerCase();
         const cls = (typeof el.className === 'string' ? el.className : '').toLowerCase();
@@ -193,30 +159,21 @@ async function run(mode) {
         if (el.tagName === 'CANVAS') s += 1;
         return s;
       }
-
       const removed = [];
       const threshold = mode === 'aggressive' ? 2 : 3;
-
       document.querySelectorAll('body *').forEach(el => {
         if (el === document.body) return;
-        const s = score(el);
-        if (s >= threshold) {
+        if (score(el) >= threshold) {
           const isHuge = el.offsetWidth > window.innerWidth * 0.9 &&
                          el.offsetHeight > window.innerHeight * 0.9;
           if (isHuge && el.tagName !== 'CANVAS') return;
           el.style.setProperty('display', 'none', 'important');
-          removed.push(el.tagName +
-            (el.id ? '#' + el.id : '') +
-            (el.className && typeof el.className === 'string' ?
-              '.' + el.className.split(' ')[0] : ''));
+          removed.push(el.tagName);
         }
       });
-
       return { removed: removed.slice(0, 20), total: removed.length };
     }
   });
-
   const r = results[0].result;
-  logMsg(`✅ Removidos: ${r.total}\n\n` +
-    (r.removed.length ? r.removed.map(x => '• ' + x).join('\n') : '(nenhum)'));
+  logMsg(`✅ Removidos: ${r.total}`);
 }
