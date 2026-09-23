@@ -8,7 +8,8 @@ const MODEL_URL = 'https://huggingface.co/tiagoaferreira/lama-onnx/blob/main/lam
 // ⚠️ ADICIONE ESTAS LINHAS:
 // Aponta para os arquivos WASM locais (dentro da extensão)
 ort.env.wasm.wasmPaths = chrome.runtime.getURL('lib/');
-ort.env.wasm.numThreads = 1;  // Evita problemas com threads no Chrome extension
+ort.env.wasm.numThreads = 1;
+ort.env.wasm.proxy = false;
 
 const INPUT_SIZE = 512;
 
